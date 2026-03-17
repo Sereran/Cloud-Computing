@@ -368,7 +368,7 @@ const deleteGame = async (id) => {
   color: #ff9800;
 }
 .high-score {
-  color: #4caf50;/
+  color: #4caf50;
 }
 .buy-btn {
   display: inline-block;
