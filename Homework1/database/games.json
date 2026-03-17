@@ -1,1 +1,29 @@
-[]
+[
+    {
+        "title": "Baldur's Gate 3",
+        "description": "Baldur\u2019s Gate 3 is a story-rich, party-based RPG set in the universe of Dungeons & Dragons, where your choices shape a tale of fellowship and betrayal, survival and sacrifice, and the lure of absolute power.",
+        "tags": [
+            "RPG",
+            "D&D",
+            "Choices Matter"
+        ],
+        "id": 1
+    },
+    {
+        "title": "Puyo Puyo Tetris 2",
+        "description": "Japan\u2019s beloved puzzle game series Puyo Puyo and the world-renowned Tetris\u00ae game franchise have teamed up again to deliver even more Puyo-popping and Tetrimino-clearing fun in Puyo Puyo Tetris 2.",
+        "tags": [
+            "Puzzle"
+        ],
+        "id": 2
+    },
+    {
+        "title": "Dark Souls III",
+        "description": "Dark Souls continues to push the boundaries with the latest, ambitious chapter in the critically-acclaimed and genre-defining series. Prepare yourself and Embrace The Darkness! ",
+        "tags": [
+            "Souls-like",
+            "Dark Fantasy"
+        ],
+        "id": 4
+    }
+]
