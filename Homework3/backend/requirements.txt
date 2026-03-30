@@ -1,5 +1,4 @@
-fastapi
-uvicorn
+fastapi[standard]
 httpx
 mysql-connector-python
 python-dotenv
