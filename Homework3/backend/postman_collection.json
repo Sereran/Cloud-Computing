@@ -1,0 +1,77 @@
+{
+  "info": {
+    "_postman_id": "a671239c-1234-4bc1-9c8a-eb23145678ab",
+    "name": "Cloud Homework",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get All Games",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/games",
+          "host": ["{{base_url}}"],
+          "path": ["api", "games"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Game Details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/games/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "games", "1"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create New Game",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"title\": \"Elden Ring\",\n    \"description\": \"Rise, Tarnished, and be guided by grace to brandish the power of the Elden Ring and become an Elden Lord in the Lands Between.\",\n    \"tags\": [\"Action\", \"RPG\", \"Dark Fantasy\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/games",
+          "host": ["{{base_url}}"],
+          "path": ["api", "games"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Game",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/games/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "games", "1"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+}
