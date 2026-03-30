@@ -19,52 +19,51 @@ EXCHANGE_API_URL = "https://api.frankfurter.app/latest?from=USD&to=EUR,RON"
 
 @router.get("")
 async def get_all_games():
-    """Fetches all games, utilizing db_session to ensure connection safety."""
+    """Fetches all games, merging tags in Python using descriptive, explicit logic."""
     with db.db_session() as conn:
         with conn.cursor(dictionary=True) as cursor:
-            query = """
-                SELECT g.*, GROUP_CONCAT(at.tag_name) as tags
-                FROM game g
-                LEFT JOIN applied_tag at ON g.id = at.game_id
-                GROUP BY g.id
-            """
-            cursor.execute(query)
-            games = cursor.fetchall()
+            cursor.execute("SELECT * FROM game")
+            all_games_rows = cursor.fetchall()
+
+            games_by_id = {}
+            for game_data in all_games_rows:
+                game_id = game_data['id']
+                game_data['tags'] = []
+                games_by_id[game_id] = game_data
             
-            for game in games:
-                game["tags"] = game["tags"].split(",") if game.get("tags") else []
+            cursor.execute("SELECT game_id, tag_name FROM applied_tag")
+            all_tag_associations = cursor.fetchall()
             
-            logger.info(f"Retrieved {len(games)} games from library.")
-            return games
+            for association in all_tag_associations:
+                game_id_from_tag = association['game_id']
+                tag_name = association['tag_name']
+                
+                if game_id_from_tag in games_by_id:
+                    games_by_id[game_id_from_tag]['tags'].append(tag_name)
+            
+            logger.info(f"Retrieved {len(games_by_id)} games from library.")
+            return list(games_by_id.values())
 
 @router.get("/{game_id}")
 async def get_aggregated_game_data(game_id: int):
-    """Fetches and aggregates game data with zero connection leakage risk."""
+    """Fetches a single game and its resources using direct, simple queries."""
     with db.db_session() as conn:
         with conn.cursor(dictionary=True) as cursor:
-            query = """
-                SELECT g.*, GROUP_CONCAT(at.tag_name) as tags
-                FROM game g
-                LEFT JOIN applied_tag at ON g.id = at.game_id
-                WHERE g.id = %s
-                GROUP BY g.id
-            """
-            cursor.execute(query, (game_id,))
+            cursor.execute("SELECT * FROM game WHERE id = %s", (game_id,))
             game_data = cursor.fetchone()
             
             if not game_data:
                 logger.warning(f"Game ID {game_id} not found in library.")
                 raise HTTPException(status_code=404, detail=f"Game ID {game_id} not found.")
 
-            game_data["tags"] = game_data["tags"].split(",") if game_data.get("tags") else []
-
-            # Fetch local media
+            cursor.execute("SELECT tag_name FROM applied_tag WHERE game_id = %s", (game_id,))
+            game_data["tags"] = [row["tag_name"] for row in cursor.fetchall()]
             cursor.execute("SELECT url FROM media WHERE game_id = %s", (game_id,))
             local_media_urls = [m["url"] for m in cursor.fetchall()]
 
             game_title = game_data.get("title")
 
-    # External aggregation logic (outside DB context to minimize hold time)
+    # External aggregation logic (outside DB context)
     async with httpx.AsyncClient() as client:
         try:
             rawg_task = client.get(f"{RAWG_API_URL}?key={RAWG_API_KEY}&search={game_title}")
