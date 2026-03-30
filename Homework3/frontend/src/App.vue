@@ -1,14 +1,37 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
+const isAuthenticated = ref(false)
+const isCaptchaValid = ref(false)
+const authMode = ref('login')
+
+const authInput = ref({
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: ''
+})
+
+const handleAuth = () => {
+  // TODO: Implement actual authentication logic
+  if (isCaptchaValid.value) {
+    isAuthenticated.value = true
+  }
+}
+
+const toggleAuthMode = (mode) => {
+  authMode.value = mode
+  authInput.value = { username: '', email: '', password: '', confirmPassword: '' }
+}
+
 const gamesList = ref([])
 const selectedGame = ref(null)
 
 // GET All Games
 const fetchAllGames = async () => {
   try {
-    const response = await fetch('http://127.0.0.1:8001/api/games')
-    gamesList.value = await response.json() // Prove we only extract JSON!
+    const response = await fetch('http://127.0.0.1:8000/api/games')
+    gamesList.value = await response.json()
   } catch (error) {
     console.error("Error fetching games:", error)
   }
@@ -17,17 +40,12 @@ const fetchAllGames = async () => {
 // GET One Game
 const fetchOneGame = async (id) => {
   try {
-    const response = await fetch(`http://127.0.0.1:8001/api/games/${id}`)
+    const response = await fetch(`http://127.0.0.1:8000/api/games/${id}`)
     selectedGame.value = await response.json()
   } catch (error) {
     console.error("Error fetching game details:", error)
   }
 }
-
-// GET ALL when the page first loads
-onMounted(() => {
-  fetchAllGames()
-})
 
 const newGameInput = ref({
   title: '',
@@ -52,7 +70,7 @@ const submitNewGame = async () => {
 
   try {
     // sends the request to backend
-    const response = await fetch('http://127.0.0.1:8001/api/games', {
+    const response = await fetch('http://127.0.0.1:8000/api/games', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -77,7 +95,7 @@ const deleteGame = async (id) => {
   if (!confirm("Are you sure you want to delete this game?")) return;
 
   try {
-    const response = await fetch(`http://127.0.0.1:8001/api/games/${id}`, {
+    const response = await fetch(`http://127.0.0.1:8000/api/games/${id}`, {
       method: 'DELETE'
     });
 
@@ -91,10 +109,79 @@ const deleteGame = async (id) => {
     console.error("Error deleting game:", error);
   }
 }
+
+// Initialization
+onMounted(() => {
+  fetchAllGames()
+  window.onCaptchaVerified = (token) => {
+    isCaptchaValid.value = true
+    // TODO: token needs to get sent to the backend
+  }
+  
+  window.onCaptchaExpired = () => {
+    isCaptchaValid.value = false
+  }
+
+  // loads reCAPTCHA
+  const script = document.createElement('script')
+  script.src = "https://www.google.com/recaptcha/enterprise.js"
+  script.async = true
+  script.defer = true
+  document.head.appendChild(script)
+})
 </script>
 
 <template>
-  <main class="app-container">
+  <div v-if="!isAuthenticated" class="auth-container">
+    <div class="form-card auth-card">
+      
+      <h1 class="main-title">{{ authMode === 'login' ? 'Welcome Back' : 'Create Account' }}</h1>
+      <p class="subtitle">
+        {{ authMode === 'login' ? 'Log in to access your library.' : 'Register to start creating your own game library.' }}
+      </p>
+      
+     <div class="auth-tabs">
+        <button 
+          class="auth-tab-btn" 
+          :class="{ active: authMode === 'login' }" 
+          @click="toggleAuthMode('login')">
+          Log In
+        </button>
+        <button 
+          class="auth-tab-btn" 
+          :class="{ active: authMode === 'register' }" 
+          @click="toggleAuthMode('register')">
+          Register
+        </button>
+      </div>
+      
+      <input v-model="authInput.username" type="text" placeholder="Username" class="form-input" />
+      
+      <input v-if="authMode === 'register'" v-model="authInput.email" type="email" placeholder="Email Address" class="form-input" />
+      
+      <input v-model="authInput.password" type="password" placeholder="Password" class="form-input" />
+      
+      <input v-if="authMode === 'register'" v-model="authInput.confirmPassword" type="password" placeholder="Confirm Password" class="form-input" />
+      
+      <div 
+        class="g-recaptcha" 
+        data-sitekey="6LfnSJ4sAAAAAJyxODutrsf1Y7g7kNRcrnBDMJoe"
+        data-callback="onCaptchaVerified"
+        data-expired-callback="onCaptchaExpired"
+        data-theme="dark">
+      </div>
+
+      <button 
+        @click="handleAuth" 
+        class="submit-btn auth-btn" 
+        :disabled="!isCaptchaValid">
+        <span v-if="!isCaptchaValid">Please complete reCAPTCHA</span>
+        <span v-else>{{ authMode === 'login' ? 'Access Library' : 'Create Account & Enter' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <main v-else class="app-container">
     <div v-if="!selectedGame" class="library-view">
       <h1 class="main-title">Game Library</h1>
       
@@ -193,6 +280,80 @@ const deleteGame = async (id) => {
 </template>
 
 <style scoped>
+
+/*authentication styling*/
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #ffffff;
+}
+
+.auth-card {
+  align-items: center;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.subtitle {
+  color: #aaaaaa;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+.auth-tabs {
+  display: flex;
+  width: 70%;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #444;
+  margin-bottom: 20px;
+}
+
+.auth-tab-btn {
+  flex: 1;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.auth-tab-btn:hover {
+  background-color: #2a2a2a;
+}
+
+.auth-tab-btn.active {
+  background-color: #4caf50;
+  color: #121212;
+}
+
+.auth-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 15px;
+  font-size: 1.1rem;
+}
+
+.auth-btn:disabled {
+  background-color: #555;
+  color: #888;
+  cursor: not-allowed;
+}
+
+.g-recaptcha {
+  margin: 15px 0;
+  display: flex;
+  justify-content: center;
+}
+
 /*global styling*/
 .app-container {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
