@@ -157,10 +157,11 @@ async def get_aggregated_game_data(game_id: int):
 async def create_game(request: Request):
     """Creates a game using atomic transactions within the context manager."""
     data = await request.json()
-    title, desc, tags = (
+    title, desc, tags, media_urls = (
         data.get("title"),
         data.get("description", ""),
         data.get("tags", []),
+        data.get("media_urls", []),
     )
 
     with db.db_session() as conn:
@@ -180,6 +181,12 @@ async def create_game(request: Request):
                     cursor.execute(
                         "INSERT INTO applied_tag (game_id, tag_name) VALUES (%s, %s)",
                         (new_id, tag_name),
+                    )
+                
+                for url in media_urls:
+                    cursor.execute(
+                        "INSERT IGNORE INTO media (url, game_id) VALUES (%s)",
+                        (url, new_id)
                     )
 
                 conn.commit()

@@ -43,7 +43,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n    \"title\": \"Elden Ring\",\n    \"description\": \"Rise, Tarnished, and be guided by grace to brandish the power of the Elden Ring and become an Elden Lord in the Lands Between.\",\n    \"tags\": [\"Action\", \"RPG\", \"Dark Fantasy\"]\n}"
+          "raw": "{\n    \"title\": \"Elden Ring\",\n    \"description\": \"Rise, Tarnished, and be guided by grace to brandish the power of the Elden Ring and become an Elden Lord in the Lands Between.\",\n    \"tags\": [\"Action\", \"RPG\", \"Dark Fantasy\"],\n    \"media_urls\": [\"https://www.theloadout.com/wp-content/sites/theloadout/2022/02/elden-ring-review-550x309.jpg\", \"https://www.theloadout.com/wp-content/uploads/2022/02/elden-ring-review-1.jpg\"]\n}"
         },
         "url": {
           "raw": "{{base_url}}/api/games",
