@@ -1,6 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { initializeApp } from 'firebase/app'
+import { getStorage, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 
+const GAME_API_URL = process.env.GAME_API_HOST + process.env.GAME_API_BASE_URI
+
+// ----------------------------------------
+// ! Authentication logic and dependencies.
+// ----------------------------------------
 const isAuthenticated = ref(false)
 const isCaptchaValid = ref(false)
 const authMode = ref('login')
@@ -9,7 +16,7 @@ const authInput = ref({
   username: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
 })
 
 const handleAuth = () => {
@@ -24,89 +31,169 @@ const toggleAuthMode = (mode) => {
   authInput.value = { username: '', email: '', password: '', confirmPassword: '' }
 }
 
+// ----------------------------------------
+// ! Firebase logic and dependencies.
+// ----------------------------------------
+const firebaseConfig = {
+  apiKey: process.env.FIREBASE_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID,
+}
+
+const app = initializeApp(firebaseConfig)
+const storage = getStorage(app)
+
+const isUploading = ref(false)
+const selectedFiles = ref([])
+
+const handleFileChange = (event) => {
+  const files = Array.from(event.target.files)
+  if (files.length > 3) {
+    alert('You can only upload up to 3 files.')
+    event.target.value = ''
+    selectedFiles.value = []
+    return
+  }
+  selectedFiles.value = files
+}
+
+const uploadFiles = async () => {
+  const urls = []
+  for (const file of selectedFiles.value) {
+    const filePath = `games/${new Date().getTime()}_${file.name}`
+    const fileRef = storageRef(storage, filePath)
+    await uploadBytes(fileRef, file)
+    const url = await getDownloadURL(fileRef)
+    urls.push(url)
+  }
+  return urls
+}
+
+/**
+ * Utility function.
+ *
+ * Extracts the file extension from a URL, ignoring query parameters.
+ * @param {string} urlString - The full URL (e.g., 'https://example.com/video.mp4?user=123')
+ * @returns {string} The file extension (e.g., 'mp4' or 'png')
+ */
+function getFileExtension(urlString) {
+  try {
+    const url = new URL(urlString)
+    const pathname = url.pathname
+    return pathname.split('.').pop()
+  } catch (error) {
+    console.error('Invalid URL provided:', error)
+    return ''
+  }
+}
+
+// ----------------------------------------
+// ! Backend request making logic and dependencies.
+// ----------------------------------------
 const gamesList = ref([])
 const selectedGame = ref(null)
 
 // GET All Games
 const fetchAllGames = async () => {
   try {
-    const response = await fetch('http://127.0.0.1:8000/api/games')
+    const response = await fetch(GAME_API_URL)
     gamesList.value = await response.json()
   } catch (error) {
-    console.error("Error fetching games:", error)
+    console.error('Error fetching games:', error)
   }
 }
 
 // GET One Game
 const fetchOneGame = async (id) => {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/games/${id}`)
+    const response = await fetch(`${GAME_API_URL}/${id}`)
     selectedGame.value = await response.json()
   } catch (error) {
-    console.error("Error fetching game details:", error)
+    console.error('Error fetching game details:', error)
   }
 }
 
 const newGameInput = ref({
   title: '',
   description: '',
-  tags: ''
+  tags: '',
+  media_urls: [],
 })
 
 const showAddForm = ref(false)
 
 // POST
 const submitNewGame = async () => {
-  const tagsArray = newGameInput.value.tags
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(tag => tag !== '')
-
-  const payload = {
-    title: newGameInput.value.title,
-    description: newGameInput.value.description,
-    tags: tagsArray
+  if (selectedFiles.value.length > 3) {
+    alert('Maximum 3 files allowed.')
+    return
   }
 
+  isUploading.value = true
   try {
-    // sends the request to backend
-    const response = await fetch('http://127.0.0.1:8000/api/games', {
+    // 1. Upload files to Firebase Storage
+    const mediaUrls = await uploadFiles()
+
+    const tagsArray = newGameInput.value.tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag !== '')
+
+    const payload = {
+      title: newGameInput.value.title,
+      description: newGameInput.value.description,
+      tags: tagsArray,
+      media_urls: mediaUrls,
+    }
+
+    // 2. Send payload to backend
+    const response = await fetch(GAME_API_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     })
 
     if (response.ok) {
-      newGameInput.value = { title: '', description: '', tags: '' }
+      newGameInput.value = { title: '', description: '', tags: '', media_urls: [] }
+      selectedFiles.value = []
       showAddForm.value = false
       fetchAllGames()
     } else {
-      console.error("Failed to add game. Check backend logs.")
+      const errorData = await response.json()
+      console.error('Failed to add game:', errorData)
+      alert('Failed to add game. Check console for details.')
     }
   } catch (error) {
-    console.error("Error submitting new game:", error)
+    console.error('Error submitting new game:', error)
+    alert('An error occurred while saving the game.')
+  } finally {
+    isUploading.value = false
   }
 }
 
 // DELETE
 const deleteGame = async (id) => {
-  if (!confirm("Are you sure you want to delete this game?")) return;
+  if (!confirm('Are you sure you want to delete this game?')) return
 
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/games/${id}`, {
-      method: 'DELETE'
-    });
+    const response = await fetch(`${GAME_API_URL}/${id}`, {
+      method: 'DELETE',
+    })
 
     if (response.ok) {
-      selectedGame.value = null;
-      fetchAllGames();
+      selectedGame.value = null
+      fetchAllGames()
     } else {
-      console.error("Failed to delete the game. Check backend logs.");
+      console.error('Failed to delete the game. Check backend logs.')
     }
   } catch (error) {
-    console.error("Error deleting game:", error);
+    console.error('Error deleting game:', error)
   }
 }
 
@@ -124,7 +211,7 @@ onMounted(() => {
 
   // loads reCAPTCHA
   const script = document.createElement('script')
-  script.src = "https://www.google.com/recaptcha/enterprise.js"
+  script.src = 'https://www.google.com/recaptcha/enterprise.js'
   script.async = true
   script.defer = true
   document.head.appendChild(script)
@@ -134,10 +221,12 @@ onMounted(() => {
 <template>
   <div v-if="!isAuthenticated" class="auth-container">
     <div class="form-card auth-card">
-
       <h1 class="main-title">{{ authMode === 'login' ? 'Welcome Back' : 'Create Account' }}</h1>
       <p class="subtitle">
-        {{ authMode === 'login' ? 'Log in to access your library.' : 'Register to start creating your own game library.'
+        {{
+          authMode === 'login'
+            ? 'Log in to access your library.'
+            : 'Register to start creating your own game library.'
         }}
       </p>
 
@@ -161,8 +250,7 @@ onMounted(() => {
         placeholder="Confirm Password" class="form-input" />
 
       <div class="g-recaptcha" data-sitekey="6LfnSJ4sAAAAAJyxODutrsf1Y7g7kNRcrnBDMJoe" data-callback="onCaptchaVerified"
-        data-expired-callback="onCaptchaExpired" data-theme="dark">
-      </div>
+        data-expired-callback="onCaptchaExpired" data-theme="dark"></div>
 
       <button @click="handleAuth" class="submit-btn auth-btn" :disabled="!isCaptchaValid">
         <span v-if="!isCaptchaValid">Please complete reCAPTCHA</span>
@@ -192,9 +280,20 @@ onMounted(() => {
           <input v-model="newGameInput.tags" type="text" placeholder="Tags (comma separated, e.g. Action, Sci-Fi)"
             class="form-input" />
 
+          <div class="file-upload-section">
+            <label class="form-label">Media Upload (Max 3 files, .mp4 or .png)</label>
+            <input type="file" multiple accept=".mp4,.png" @change="handleFileChange" class="form-input file-input"
+              :disabled="isUploading" />
+            <small v-if="selectedFiles.length > 0">{{ selectedFiles.length }} files selected</small>
+          </div>
+
           <div class="form-actions">
-            <button @click="submitNewGame" class="submit-btn">Save to Library</button>
-            <button @click="showAddForm = false" class="cancel-btn">Cancel</button>
+            <button @click="submitNewGame" class="submit-btn" :disabled="isUploading || !newGameInput.title">
+              {{ isUploading ? 'Uploading...' : 'Save to Library' }}
+            </button>
+            <button @click="showAddForm = false" class="cancel-btn" :disabled="isUploading">
+              Cancel
+            </button>
           </div>
         </div>
       </div>
@@ -210,20 +309,50 @@ onMounted(() => {
     </div>
 
     <div v-else class="detail-view">
-      <button class="back-btn" @click="selectedGame = null">
-        &#8592; Back to Library
-      </button>
+      <button class="back-btn" @click="selectedGame = null">&#8592; Back to Library</button>
 
       <div class="detail-card">
-        <h2 class="game-title">{{ selectedGame.local_data.title }}</h2>
+        <h2 class="game-title">{{ selectedGame.game_data.title }}</h2>
 
-        <div class="tags-container" v-if="selectedGame.local_data.tags">
-          <span v-for="tag in selectedGame.local_data.tags" :key="tag" class="tag local-tag">
+        <div class="tags-container" v-if="selectedGame.game_data.tags">
+          <span v-for="tag in selectedGame.game_data.tags" :key="tag" class="tag local-tag">
             {{ tag }}
           </span>
         </div>
 
-        <img class="game-cover" :src="selectedGame.media.cover_url" alt="Game Cover" />
+        <div class="media-gameplay-section" v-if="selectedGame.media.urls && selectedGame.media.urls.length > 0">
+          <h3 class="section-subtitle">Media Gameplay</h3>
+          <div class="media-grid">
+            <div v-for="(url, index) in selectedGame.media.urls" :key="index" class="media-item-box">
+              <!-- Small span. -->
+              <div class="media-info-header">
+                <span v-if="getFileExtension(url) == 'mp4'" class="media-type-tag video-tag">Video Gameplay</span>
+                <span v-else class="media-type-tag image-tag">Gameplay Capture</span>
+              </div>
+
+              <!-- Render custom media provided by the user. -->
+              <div class="media-container">
+                <img v-if="
+                  getFileExtension(url) == 'png' ||
+                  getFileExtension(url) == 'jpg' ||
+                  getFileExtension(url) == 'jpeg'
+                " :src="url" class="media-element" alt="Gameplay image" />
+
+                <video v-else-if="getFileExtension(url) == 'mp4'" controls class="media-element">
+                  <source :src="url" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+
+                <div v-else class="unsupported-media">
+                  <a :href="url" target="_blank" class="download-link">Download Unknown File</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <img class="game-cover" :src="selectedGame.media.cover_url" v-if="selectedGame.media.cover_url"
+          alt="Game Cover" />
 
         <div class="platforms-container" v-if="selectedGame.platforms">
           <span v-for="platform in selectedGame.platforms" :key="platform" class="tag platform-tag">
@@ -231,7 +360,7 @@ onMounted(() => {
           </span>
         </div>
 
-        <p class="description">{{ selectedGame.local_data.description }}</p>
+        <p class="description">{{ selectedGame.game_data.description }}</p>
 
         <div class="stats-grid">
           <div class="metacritic-section" v-if="selectedGame.reviews.metacritic">
@@ -243,9 +372,15 @@ onMounted(() => {
 
           <div class="pricing-section">
             <h3>Best Deal</h3>
-            <p class="price"><strong>USD:</strong> ${{ selectedGame.pricing.usd }}</p>
-            <p class="price"><strong>EUR:</strong> €{{ selectedGame.pricing.eur }} </p>
-            <p class="price"><strong>RON:</strong> {{ selectedGame.pricing.ron }} lei</p>
+            <p class="price" v-if="selectedGame.pricing.usd">
+              <strong>USD:</strong> ${{ selectedGame.pricing.usd }}
+            </p>
+            <p class="price" v-if="selectedGame.pricing.eur">
+              <strong>EUR:</strong> €{{ selectedGame.pricing.eur }}
+            </p>
+            <p class="price" v-if="selectedGame.pricing.ron">
+              <strong>RON:</strong> {{ selectedGame.pricing.ron }} lei
+            </p>
 
             <a v-if="selectedGame.pricing.deal_id"
               :href="`https://www.cheapshark.com/redirect?dealID=${selectedGame.pricing.deal_id}`" target="_blank"
@@ -254,7 +389,7 @@ onMounted(() => {
             </a>
           </div>
         </div>
-        <button class="delete-btn" @click="deleteGame(selectedGame.local_data.id)">
+        <button class="delete-btn" @click="deleteGame(selectedGame.game_data.id)">
           Delete Game
         </button>
       </div>
@@ -365,7 +500,9 @@ onMounted(() => {
   border-radius: 12px;
   padding: 20px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -633,6 +770,136 @@ onMounted(() => {
   background-color: #444;
 }
 
+.file-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  color: #aaa;
+  font-weight: bold;
+}
+
+.file-input {
+  padding: 8px;
+  font-size: 0.9rem;
+}
+
+.media-gameplay-section {
+  margin: 35px 0;
+  padding: 25px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.section-subtitle {
+  font-size: 1.2rem;
+  color: #4caf50;
+  margin-top: 0;
+  margin-bottom: 25px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 900;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 25px;
+}
+
+.media-item-box {
+  background: #0a0a0a;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  transition:
+    transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    border-color 0.3s ease;
+  border: 1px solid #222;
+}
+
+.media-item-box:hover {
+  transform: translateY(-5px);
+  border-color: #4caf50;
+}
+
+.media-info-header {
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid #222;
+  display: flex;
+  align-items: center;
+}
+
+.media-type-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.video-tag {
+  background: rgba(233, 30, 99, 0.2);
+  color: #ff4081;
+  border: 1px solid rgba(233, 30, 99, 0.3);
+}
+
+.audio-tag {
+  background: rgba(156, 39, 176, 0.2);
+  color: #e040fb;
+  border: 1px solid rgba(156, 39, 176, 0.3);
+}
+
+.image-tag {
+  background: rgba(33, 150, 243, 0.2);
+  color: #448aff;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.media-container {
+  width: 100%;
+}
+
+.media-element {
+  width: 100%;
+  display: block;
+  border: none;
+}
+
+.audio-element {
+  padding: 15px;
+  height: 64px;
+}
+
+.unsupported-media {
+  padding: 30px;
+  text-align: center;
+}
+
+.download-link {
+  color: #4caf50;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+
+.download-link:hover {
+  color: #66bb6a;
+  text-decoration: underline;
+}
+
 .delete-btn {
   background-color: transparent;
   color: #ff4c4c;
@@ -649,5 +916,10 @@ onMounted(() => {
 .delete-btn:hover {
   background-color: #ff4c4c;
   color: #121212;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
