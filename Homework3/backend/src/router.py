@@ -85,9 +85,10 @@ async def get_aggregated_game_data(game_id: int):
             cursor.execute(
                 "SELECT tag_name FROM applied_tag WHERE game_id = %s", (game_id,)
             )
-            game_data["tags"] = [row["tag_name"] for row in cursor.fetchall()]
+            game_data["tags"] = [t["tag_name"] for t in cursor.fetchall()]
+            
             cursor.execute("SELECT url FROM media WHERE game_id = %s", (game_id,))
-            local_media_urls = [m["url"] for m in cursor.fetchall()]
+            media_urls = [m["url"] for m in cursor.fetchall()]
 
             game_title = game_data.get("title")
 
@@ -139,9 +140,11 @@ async def get_aggregated_game_data(game_id: int):
             f"Successfully aggregated data for game '{game_title}' ({game_id})."
         )
         return {
-            "local_data": game_data,
-            "local_media": local_media_urls,
-            "media": {"cover_url": cover_image},
+            "game_data": game_data,
+            "media": {
+                "cover_url": cover_image,
+                "urls": media_urls
+            },
             "pricing": {
                 "usd": price_usd,
                 "eur": price_eur,
