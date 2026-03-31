@@ -81,7 +81,7 @@ const submitNewGame = async () => {
     if (response.ok) {
       newGameInput.value = { title: '', description: '', tags: '' }
       showAddForm.value = false
-      fetchAllGames() 
+      fetchAllGames()
     } else {
       console.error("Failed to add game. Check backend logs.")
     }
@@ -117,7 +117,7 @@ onMounted(() => {
     isCaptchaValid.value = true
     // TODO: token needs to get sent to the backend
   }
-  
+
   window.onCaptchaExpired = () => {
     isCaptchaValid.value = false
   }
@@ -134,47 +134,37 @@ onMounted(() => {
 <template>
   <div v-if="!isAuthenticated" class="auth-container">
     <div class="form-card auth-card">
-      
+
       <h1 class="main-title">{{ authMode === 'login' ? 'Welcome Back' : 'Create Account' }}</h1>
       <p class="subtitle">
-        {{ authMode === 'login' ? 'Log in to access your library.' : 'Register to start creating your own game library.' }}
+        {{ authMode === 'login' ? 'Log in to access your library.' : 'Register to start creating your own game library.'
+        }}
       </p>
-      
-     <div class="auth-tabs">
-        <button 
-          class="auth-tab-btn" 
-          :class="{ active: authMode === 'login' }" 
-          @click="toggleAuthMode('login')">
+
+      <div class="auth-tabs">
+        <button class="auth-tab-btn" :class="{ active: authMode === 'login' }" @click="toggleAuthMode('login')">
           Log In
         </button>
-        <button 
-          class="auth-tab-btn" 
-          :class="{ active: authMode === 'register' }" 
-          @click="toggleAuthMode('register')">
+        <button class="auth-tab-btn" :class="{ active: authMode === 'register' }" @click="toggleAuthMode('register')">
           Register
         </button>
       </div>
-      
+
       <input v-model="authInput.username" type="text" placeholder="Username" class="form-input" />
-      
-      <input v-if="authMode === 'register'" v-model="authInput.email" type="email" placeholder="Email Address" class="form-input" />
-      
+
+      <input v-if="authMode === 'register'" v-model="authInput.email" type="email" placeholder="Email Address"
+        class="form-input" />
+
       <input v-model="authInput.password" type="password" placeholder="Password" class="form-input" />
-      
-      <input v-if="authMode === 'register'" v-model="authInput.confirmPassword" type="password" placeholder="Confirm Password" class="form-input" />
-      
-      <div 
-        class="g-recaptcha" 
-        data-sitekey="6LfnSJ4sAAAAAJyxODutrsf1Y7g7kNRcrnBDMJoe"
-        data-callback="onCaptchaVerified"
-        data-expired-callback="onCaptchaExpired"
-        data-theme="dark">
+
+      <input v-if="authMode === 'register'" v-model="authInput.confirmPassword" type="password"
+        placeholder="Confirm Password" class="form-input" />
+
+      <div class="g-recaptcha" data-sitekey="6LfnSJ4sAAAAAJyxODutrsf1Y7g7kNRcrnBDMJoe" data-callback="onCaptchaVerified"
+        data-expired-callback="onCaptchaExpired" data-theme="dark">
       </div>
 
-      <button 
-        @click="handleAuth" 
-        class="submit-btn auth-btn" 
-        :disabled="!isCaptchaValid">
+      <button @click="handleAuth" class="submit-btn auth-btn" :disabled="!isCaptchaValid">
         <span v-if="!isCaptchaValid">Please complete reCAPTCHA</span>
         <span v-else>{{ authMode === 'login' ? 'Access Library' : 'Create Account & Enter' }}</span>
       </button>
@@ -184,35 +174,33 @@ onMounted(() => {
   <main v-else class="app-container">
     <div v-if="!selectedGame" class="library-view">
       <h1 class="main-title">Game Library</h1>
-      
+
       <div class="add-game-section">
         <button v-if="!showAddForm" @click="showAddForm = true" class="action-btn">
           + Add New Game
         </button>
-        
+
         <div v-else class="form-card">
           <h3>Add a Game to Library</h3>
-          
-          <input v-model="newGameInput.title" type="text" placeholder="Game Title (needs to be the full title)" class="form-input" />
-          
-          <textarea v-model="newGameInput.description" placeholder="A short description..." class="form-input textarea"></textarea>
-          
-          <input v-model="newGameInput.tags" type="text" placeholder="Tags (comma separated, e.g. Action, Sci-Fi)" class="form-input" />
-          
+
+          <input v-model="newGameInput.title" type="text" placeholder="Game Title (needs to be the full title)"
+            class="form-input" />
+
+          <textarea v-model="newGameInput.description" placeholder="A short description..."
+            class="form-input textarea"></textarea>
+
+          <input v-model="newGameInput.tags" type="text" placeholder="Tags (comma separated, e.g. Action, Sci-Fi)"
+            class="form-input" />
+
           <div class="form-actions">
             <button @click="submitNewGame" class="submit-btn">Save to Library</button>
             <button @click="showAddForm = false" class="cancel-btn">Cancel</button>
           </div>
         </div>
       </div>
-      
+
       <div class="grid-container">
-        <div 
-          v-for="game in gamesList" 
-          :key="game.id" 
-          class="game-card"
-          @click="fetchOneGame(game.id)"
-        >
+        <div v-for="game in gamesList" :key="game.id" class="game-card" @click="fetchOneGame(game.id)">
           <div class="card-content">
             <h2>{{ game.title }}</h2>
             <span class="click-hint">View Details &rarr;</span>
@@ -225,21 +213,17 @@ onMounted(() => {
       <button class="back-btn" @click="selectedGame = null">
         &#8592; Back to Library
       </button>
-      
+
       <div class="detail-card">
-        <h2 class="game-title">{{ selectedGame.local_data.title }}</h2> 
-        
+        <h2 class="game-title">{{ selectedGame.local_data.title }}</h2>
+
         <div class="tags-container" v-if="selectedGame.local_data.tags">
           <span v-for="tag in selectedGame.local_data.tags" :key="tag" class="tag local-tag">
             {{ tag }}
           </span>
         </div>
 
-        <img 
-          class="game-cover" 
-          :src="selectedGame.media.cover_url" 
-          alt="Game Cover" 
-        /> 
+        <img class="game-cover" :src="selectedGame.media.cover_url" alt="Game Cover" />
 
         <div class="platforms-container" v-if="selectedGame.platforms">
           <span v-for="platform in selectedGame.platforms" :key="platform" class="tag platform-tag">
@@ -252,7 +236,7 @@ onMounted(() => {
         <div class="stats-grid">
           <div class="metacritic-section" v-if="selectedGame.reviews.metacritic">
             <h3>Metacritic</h3>
-            <div class="score" :class="{'high-score': selectedGame.reviews.metacritic >= 80}">
+            <div class="score" :class="{ 'high-score': selectedGame.reviews.metacritic >= 80 }">
               {{ selectedGame.reviews.metacritic }}
             </div>
           </div>
@@ -262,12 +246,11 @@ onMounted(() => {
             <p class="price"><strong>USD:</strong> ${{ selectedGame.pricing.usd }}</p>
             <p class="price"><strong>EUR:</strong> €{{ selectedGame.pricing.eur }} </p>
             <p class="price"><strong>RON:</strong> {{ selectedGame.pricing.ron }} lei</p>
-            
-            <a v-if="selectedGame.pricing.deal_id" 
-               :href="`https://www.cheapshark.com/redirect?dealID=${selectedGame.pricing.deal_id}`" 
-               target="_blank" 
-               class="buy-btn">
-               View Deal &rarr;
+
+            <a v-if="selectedGame.pricing.deal_id"
+              :href="`https://www.cheapshark.com/redirect?dealID=${selectedGame.pricing.deal_id}`" target="_blank"
+              class="buy-btn">
+              View Deal &rarr;
             </a>
           </div>
         </div>
@@ -280,7 +263,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-
 /*authentication styling*/
 .auth-container {
   display: flex;
@@ -439,7 +421,7 @@ onMounted(() => {
   padding: 30px;
   max-width: 600px;
   width: 100%;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
   text-align: center;
 }
 
@@ -452,7 +434,7 @@ onMounted(() => {
 .game-cover {
   width: 100%;
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   margin-bottom: 20px;
 }
 
@@ -476,23 +458,27 @@ onMounted(() => {
   margin: 5px 0;
 }
 
-.tags-container, .platforms-container {
+.tags-container,
+.platforms-container {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   margin-bottom: 15px;
 }
+
 .tag {
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: bold;
 }
+
 .local-tag {
   background-color: #4caf50;
   color: #121212;
 }
+
 .platform-tag {
   background-color: #555;
   color: #fff;
@@ -517,20 +503,25 @@ onMounted(() => {
   gap: 20px;
   margin-top: 20px;
 }
-.metacritic-section, .pricing-section {
+
+.metacritic-section,
+.pricing-section {
   background-color: #121212;
   padding: 15px;
   border-radius: 8px;
   flex: 1;
 }
+
 .score {
   font-size: 2.5rem;
   font-weight: bold;
   color: #ff9800;
 }
+
 .high-score {
   color: #4caf50;
 }
+
 .buy-btn {
   display: inline-block;
   margin-top: 10px;
@@ -542,6 +533,7 @@ onMounted(() => {
   font-weight: bold;
   transition: background-color 0.2s;
 }
+
 .buy-btn:hover {
   background-color: #0056b3;
 }
@@ -563,7 +555,10 @@ onMounted(() => {
   cursor: pointer;
   transition: background-color 0.2s;
 }
-.action-btn:hover { background-color: #0056b3; }
+
+.action-btn:hover {
+  background-color: #0056b3;
+}
 
 .form-card {
   background-color: #2a2a2a;
@@ -577,7 +572,11 @@ onMounted(() => {
   gap: 15px;
 }
 
-.form-card h3 { margin-top: 0; color: #e0e0e0; text-align: center; }
+.form-card h3 {
+  margin-top: 0;
+  color: #e0e0e0;
+  text-align: center;
+}
 
 .form-input {
   background-color: #1e1e1e;
@@ -588,9 +587,16 @@ onMounted(() => {
   font-family: inherit;
   font-size: 1rem;
 }
-.form-input:focus { outline: 1px solid #4caf50; border-color: #4caf50; }
 
-.textarea { resize: vertical; min-height: 80px; }
+.form-input:focus {
+  outline: 1px solid #4caf50;
+  border-color: #4caf50;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
 
 .form-actions {
   display: flex;
@@ -608,7 +614,10 @@ onMounted(() => {
   font-weight: bold;
   cursor: pointer;
 }
-.submit-btn:hover { background-color: #45a049; }
+
+.submit-btn:hover {
+  background-color: #45a049;
+}
 
 .cancel-btn {
   flex: 1;
@@ -619,7 +628,10 @@ onMounted(() => {
   border-radius: 5px;
   cursor: pointer;
 }
-.cancel-btn:hover { background-color: #444; }
+
+.cancel-btn:hover {
+  background-color: #444;
+}
 
 .delete-btn {
   background-color: transparent;
