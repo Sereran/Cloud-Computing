@@ -4,7 +4,6 @@ import { initializeApp } from 'firebase/app'
 import { getStorage, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 
 const GAME_API_URL = `${import.meta.env.VITE_GAME_API_HOST}${import.meta.env.VITE_GAME_API_BASE_URI}`;
-console.log(GAME_API_URL)
 
 // ----------------------------------------
 // ! Authentication logic and dependencies.
