@@ -2,3 +2,4 @@ fastapi[standard]
 httpx
 mysql-connector-python
 python-dotenv
+google-cloud-secret-manager
