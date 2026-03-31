@@ -185,7 +185,7 @@ async def create_game(request: Request):
                 
                 for url in media_urls:
                     cursor.execute(
-                        "INSERT IGNORE INTO media (url, game_id) VALUES (%s)",
+                        "INSERT IGNORE INTO media (url, game_id) VALUES (%s, %s)",
                         (url, new_id)
                     )
 
