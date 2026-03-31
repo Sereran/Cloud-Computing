@@ -197,17 +197,18 @@ async def delete_game(game_id: int):
         conn.start_transaction()
         with conn.cursor() as cursor:
             try:
-                for table in ["applied_tag", "library", "media", "game"]:
-                    cursor.execute(
-                        (
-                            f"DELETE FROM {table} WHERE game_id = %s"
-                            if table != "game"
-                            else f"DELETE FROM {table} WHERE id = %s"
-                        ),
+                # There are no cascade constraints in the SQL database.
+                # We need to manually do the following cleanup.
+                for table in ["applied_tag", "library", "media"]:
+                    cursor.execute((
+                        f"DELETE FROM {table} WHERE game_id = %s"),
                         (game_id,),
                     )
-
+                
+                # After cleanning related tables, we do the final deletion.
+                cursor.execute("DELETE FROM game WHERE id = %s")
                 conn.commit()
+                
                 if cursor.rowcount == 0:
                     logger.info(
                         f"Attempted to delete game {game_id} but it was not found."
