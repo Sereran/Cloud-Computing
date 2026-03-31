@@ -206,7 +206,7 @@ async def delete_game(game_id: int):
                     )
                 
                 # After cleanning related tables, we do the final deletion.
-                cursor.execute("DELETE FROM game WHERE id = %s")
+                cursor.execute(("DELETE FROM game WHERE id = %s"), (game_id,))
                 conn.commit()
                 
                 if cursor.rowcount == 0:
