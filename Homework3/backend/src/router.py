@@ -34,7 +34,6 @@ def get_secret(secret_id: str, project_id: str = "937961278554") -> str:
 
 # External API URLs
 RAWG_API_KEY = get_secret("RAWG_KEY")
-RECAPTCHA_SECRET_KEY = get_secret("RECAPTCHA_KEY")
 RAWG_API_URL = "https://api.rawg.io/api/games"
 CHEAPSHARK_API_URL = "https://www.cheapshark.com/api/1.0/games"
 EXCHANGE_API_URL = "https://api.frankfurter.app/latest?from=USD&to=EUR,RON"
