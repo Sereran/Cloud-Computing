@@ -30,6 +30,10 @@ To ensure the application connects to our cloud environment:
     DB_NAME=cloud_homework
     RAWG_KEY=your-api-key
     ```
+3. **Login Google Cloud CLI**: https://docs.cloud.google.com/docs/authentication/set-up-adc-local-dev-environment
+    ```
+    gcloud auth application-default login
+    ```
 
 ## 🏃 Running the Application
 
