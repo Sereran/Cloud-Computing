@@ -15,7 +15,7 @@ def get_secret(secret_id: str, project_id: str = "937961278554") -> str:
     # Fetches a secret from Secret Manager
     try:
         client = secretmanager.SecretManagerServiceClient()
-        name = f"projects/{project_id}/secrets/{secret_id}/versions"
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
         response = client.access_secret_version(request={"name": name})
         return response.payload.data.decode("UTF-8").strip()
     except Exception as e:
