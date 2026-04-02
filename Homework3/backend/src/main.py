@@ -11,15 +11,17 @@ from src import db
 client = google.cloud.logging.Client()
 client.setup_logging()
 
+
 class CloudLoggingFormatter(logging.Formatter):
     def format(self, record):
         log_entry = {
             "severity": record.levelname,
             "message": record.getMessage(),
             "module": record.module,
-            "funcName": record.funcName
+            "funcName": record.funcName,
         }
         return json.dumps(log_entry)
+
 
 # configuram noul logger
 handler = logging.StreamHandler()
@@ -31,6 +33,7 @@ if not logger.handlers:
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # acest mesaj se va duce direct in consola google
@@ -40,11 +43,16 @@ async def lifespan(app: FastAPI):
     logger.info("aplicatia se inchide")
     db.close_pool()
 
+
 app = FastAPI(title="Cloud Homework", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "https://cloud-homework-491418.ey.r.appspot.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

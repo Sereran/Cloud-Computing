@@ -25,7 +25,7 @@ def get_secret(secret_id: str, project_id: str = "937961278554") -> str:
         return os.getenv(secret_id, "")
 
 
-# 1. Extract the user first so we can use it for logic
+# Extract the user first so we can use it for logic
 db_user = os.getenv("DB_USER", "root")
 
 # Determine which secret to fetch based on the user
