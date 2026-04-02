@@ -24,10 +24,25 @@ def get_secret(secret_id: str, project_id: str = "937961278554") -> str:
         return os.getenv(secret_id, "")
 
 
+# 1. Extract the user first so we can use it for logic
+db_user = os.getenv("DB_USER", "root")
+
+# Determine which secret to fetch based on the user
+if db_user == "mariailade":
+    secret_name = "DB_PASSWORD_MARIA"
+elif db_user == "petrubraha":
+    secret_name = "DB_PASSWORD_PETRU"
+elif db_user == "public":
+    secret_name = "DB_PASSWORD_PUBLIC"
+else:
+    # Default fallback using mariailade's password
+    secret_name = "DB_PASSWORD"
+
+# Defines the config using those dynamic variables
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "user": os.getenv("DB_USER", "root"),
-    "password": get_secret("DB_PASSWORD"),
+    "user": db_user,
+    "password": get_secret(secret_name),
     "database": os.getenv("DB_NAME", "cloud_homework"),
     "port": int(os.getenv("DB_PORT", 3306)),
 }
