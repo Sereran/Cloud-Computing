@@ -5,7 +5,7 @@ import httpx
 import logging
 import mysql.connector
 import os
-import db
+from src import db
 
 # Configure logger for route handlers
 logger = logging.getLogger(__name__)

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import mysql.connector
 import os
 import logging
+
 from google.cloud import secretmanager
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ else:
 # Defines the config using those dynamic variables
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "user": db_user,
+    "user": os.getenv("DB_USER", "root"),
     "password": get_secret(secret_name),
     "database": os.getenv("DB_NAME", "cloud_homework"),
     "port": int(os.getenv("DB_PORT", 3306)),
