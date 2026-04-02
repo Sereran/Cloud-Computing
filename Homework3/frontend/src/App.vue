@@ -320,6 +320,9 @@ onMounted(() => {
           </span>
         </div>
 
+        <img class="game-cover" :src="selectedGame.media.cover_url" v-if="selectedGame.media.cover_url"
+          alt="Game Cover" />
+
         <div class="media-gameplay-section" v-if="selectedGame.media.urls && selectedGame.media.urls.length > 0">
           <h3 class="section-subtitle">Media Gameplay</h3>
           <div class="media-grid">
@@ -350,9 +353,6 @@ onMounted(() => {
             </div>
           </div>
         </div>
-
-        <img class="game-cover" :src="selectedGame.media.cover_url" v-if="selectedGame.media.cover_url"
-          alt="Game Cover" />
 
         <div class="platforms-container" v-if="selectedGame.platforms">
           <span v-for="platform in selectedGame.platforms" :key="platform" class="tag platform-tag">
