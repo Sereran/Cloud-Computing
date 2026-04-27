@@ -1,0 +1,13 @@
+runtime: nodejs20
+instance_class: F1
+
+handlers:
+  # This tells App Engine to serve your Vue index.html as the main page
+  - url: /
+    static_files: dist/index.html
+    upload: dist/index.html
+
+  # This tells it where to find all your CSS, JS, and image files inside the dist folder
+  - url: /(.*)
+    static_files: dist/\1
+    upload: dist/(.*)
