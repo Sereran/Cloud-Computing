@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+azure-monitor-opentelemetry
+httpx
+python-dotenv
+gunicorn
