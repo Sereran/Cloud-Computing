@@ -1,8 +1,13 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { BlobServiceClient } from '@azure/storage-blob'
+import * as atlas from 'azure-maps-control'
+import 'azure-maps-control/dist/atlas.min.css'
 
 const GAME_API_URL = `${import.meta.env.VITE_GAME_API_HOST}${import.meta.env.VITE_GAME_API_BASE_URI}`;
+
+const mapContainer = ref(null)
+let map = null
 
 // ----------------------------------------
 // ! Authentication logic and dependencies.
@@ -189,6 +194,45 @@ const deleteGame = async (id) => {
 onMounted(() => {
   fetchAllGames()
 })
+
+// --- MAP LOGIC ---
+watch(selectedGame, async (newGame) => {
+  if (!newGame) {
+    if (map) {
+      map.dispose()
+      map = null
+    }
+    return
+  }
+
+  await nextTick()
+
+  if (mapContainer.value) {
+    const azureMapsKey = import.meta.env.AZURE_MAPS_KEY
+
+    map = new atlas.Map(mapContainer.value, {
+      authOptions: {
+        authType: atlas.AuthenticationType.subscriptionKey,
+        subscriptionKey: azureMapsKey
+      },
+      center: [139.6917, 35.6895], // Tokyo
+      zoom: 12,
+      view: 'Auto'
+    })
+
+    map.events.add('ready', () => {
+      const dataSource = new atlas.source.DataSource()
+      map.sources.add(dataSource)
+
+      const pinLayer = new atlas.layer.SymbolLayer(dataSource, null, {
+        iconOptions: { image: 'pin-red' }
+      })
+      map.layers.add(pinLayer)
+
+      dataSource.add(new atlas.data.Feature(new atlas.data.Point([139.6917, 35.6895])))
+    })
+  }
+})
 </script>
 
 <template>
@@ -330,6 +374,11 @@ onMounted(() => {
         </div>
 
         <p class="description">{{ selectedGame.game_data.description }}</p>
+
+        <div class="map-wrapper">
+          <h3 class="map-title">Studio Location</h3>
+          <div ref="mapContainer" class="azure-map"></div>
+        </div>
 
         <div class="stats-grid">
           <div class="metacritic-section" v-if="selectedGame.reviews.metacritic">
@@ -885,5 +934,33 @@ onMounted(() => {
 .delete-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* --- Map Styles --- */
+.map-wrapper {
+  margin: 25px 0;
+  padding: 25px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+.map-title {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #4caf50;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 900;
+  text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+.azure-map {
+  width: 100%;
+  height: 350px;
+  border-radius: 12px;
+  border: 1px solid #222;
 }
 </style>

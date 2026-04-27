@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@azure/storage-blob": "^12.26.0",
+    "azure-maps-control": "^3.7.4",
     "vue": "^3.5.29"
   },
   "devDependencies": {
