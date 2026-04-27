@@ -4,47 +4,52 @@ import logging
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from contextlib import contextmanager
-# from google.cloud import secretmanager
+
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# def get_secret(secret_id: str, project_id: str = "937961278554") -> str:
-#     # Fetches a secret from Secret Manager
-#     try:
-#         client = secretmanager.SecretManagerServiceClient()
-#         name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-#         response = client.access_secret_version(request={"name": name})
-#         return response.payload.data.decode("UTF-8").strip()
-#     except Exception as e:
-#         logger.error(f"Failed to fetch secret {secret_id}: {e}")
-#         # Fallback to local .env
-#         return os.getenv(secret_id, "")
-# 
-# 
-# # Extract the user first so we can use it for logic
-# db_user = os.getenv("DB_USER", "root")
+KEY_VAULT_URL = os.getenv("KEY_VAULT_URL")
 
-# Determine which secret to fetch based on the user
-# if db_user == "mariailade":
-#     secret_name = "DB_PASSWORD_MARIA"
-# elif db_user == "petrubraha":
-#     secret_name = "DB_PASSWORD_PETRU"
-# elif db_user == "public":
-#     secret_name = "DB_PASSWORD_PUBLIC"
-# else:
-#     # Default fallback using mariailade's password
-#     secret_name = "DB_PASSWORD"
+# Initialize the Azure Key Vault Client
+try:
+    # It uses your local Azure CLI login and automatically switches to Managed Identity in the cloud
+    credential = DefaultAzureCredential()
+    secret_client = SecretClient(vault_url=KEY_VAULT_URL, credential=credential)
+    logger.info("Successfully connected to Azure Key Vault.")
+except Exception as e:
+    logger.error(f"Failed to connect to Key Vault: {e}")
+    secret_client = None
+
+
+def get_secret(secret_name: str) -> str:
+    """Fetches a secret from Azure Key Vault, falls back to .env if needed."""
+    if secret_client:
+        try:
+            # Reaches out to Azure to grab the secret (ex:'SQL-PASSWORD')
+            retrieved_secret = secret_client.get_secret(secret_name)
+            return retrieved_secret.value
+        except Exception as e:
+            logger.warning(f"Could not fetch {secret_name} from vault. Error: {e}")
+
+    # Fallback for local development if the Vault connection fails
+    # We replace hyphens with underscores because .env files use underscores
+    env_fallback = secret_name.replace("-", "_")
+    return os.getenv(env_fallback, "")
+
 
 # Defines the config using those dynamic variables
 DB_CONFIG = {
     "server": os.getenv("SQL_SERVER"),
     "database": os.getenv("SQL_DATABASE"),
     "username": os.getenv("SQL_USER"),
-    "password": os.getenv("SQL_PASSWORD"),
-    "driver": os.getenv("SQL_DRIVER"),
+    "driver": os.getenv("SQL_DRIVER", "{ODBC Driver 17 for SQL Server}"),
+    "password": get_secret("SQL-PASSWORD"),
 }
+
 
 def get_conn_str() -> str:
     return (

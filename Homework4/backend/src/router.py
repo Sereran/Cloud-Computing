@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
+
 # from google.cloud import secretmanager
 import asyncio
 import httpx
@@ -11,29 +12,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/games")
 
-
-# Secrets
-# def get_secret(secret_id: str, project_id: str = "937961278554") -> str:
-#     # Fetches a secret from Secret Manager
-#     try:
-#         client = secretmanager.SecretManagerServiceClient()
-#         # Build the resource name of the secret
-#         name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-# 
-#         # Access the secret
-#         response = client.access_secret_version(request={"name": name})
-# 
-#         # Decode the secret payload
-#         return response.payload.data.decode("UTF-8")
-#     except Exception as e:
-#         logger.error(f"Failed to fetch secret {secret_id}: {e}")
-#         # Fallback to local environment variables
-#         return os.getenv(secret_id, "")
-
-
 # External API URLs
-# RAWG_API_KEY = get_secret("RAWG_KEY")
-RAWG_API_KEY = os.getenv("RAWG_KEY")
+RAWG_API_KEY = db.get_secret("RAWG-KEY")
 RAWG_API_URL = "https://api.rawg.io/api/games"
 CHEAPSHARK_API_URL = "https://www.cheapshark.com/api/1.0/games"
 EXCHANGE_API_URL = "https://api.frankfurter.app/latest?from=USD&to=EUR,RON"
@@ -76,21 +56,17 @@ async def get_aggregated_game_data(game_id: int):
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM game WHERE id = ?", (game_id,))
         row = cursor.fetchone()
-        
+
         if not row:
             logger.warning(f"Game ID {game_id} not found in library.")
-            raise HTTPException(
-                status_code=404, detail=f"Game ID {game_id} not found."
-            )
-        
+            raise HTTPException(status_code=404, detail=f"Game ID {game_id} not found.")
+
         columns = [column[0] for column in cursor.description]
         game_data = dict(zip(columns, row))
 
-        cursor.execute(
-            "SELECT tag_name FROM applied_tag WHERE game_id = ?", (game_id,)
-        )
+        cursor.execute("SELECT tag_name FROM applied_tag WHERE game_id = ?", (game_id,))
         game_data["tags"] = [t[0] for t in cursor.fetchall()]
-        
+
         cursor.execute("SELECT url FROM media WHERE game_id = ?", (game_id,))
         media_urls = [m[0] for m in cursor.fetchall()]
 
@@ -145,10 +121,7 @@ async def get_aggregated_game_data(game_id: int):
         )
         return {
             "game_data": game_data,
-            "media": {
-                "cover_url": cover_image,
-                "urls": media_urls
-            },
+            "media": {"cover_url": cover_image, "urls": media_urls},
             "pricing": {
                 "usd": price_usd,
                 "eur": price_eur,
@@ -182,25 +155,22 @@ async def create_game(request: Request):
 
             for tag_name in tags:
                 try:
-                    cursor.execute(
-                        "INSERT INTO tag (name) VALUES (?)", (tag_name,)
-                    )
+                    cursor.execute("INSERT INTO tag (name) VALUES (?)", (tag_name,))
                 except Exception:
-                    pass # Ignore duplicates (equivalent to INSERT IGNORE)
-                
+                    pass  # Ignore duplicates (equivalent to INSERT IGNORE)
+
                 cursor.execute(
                     "INSERT INTO applied_tag (game_id, tag_name) VALUES (?, ?)",
                     (new_id, tag_name),
                 )
-            
+
             for url in media_urls:
                 try:
                     cursor.execute(
-                        "INSERT INTO media (url, game_id) VALUES (?, ?)",
-                        (url, new_id)
+                        "INSERT INTO media (url, game_id) VALUES (?, ?)", (url, new_id)
                     )
                 except Exception:
-                    pass # Ignore duplicates
+                    pass  # Ignore duplicates
 
             conn.commit()
             logger.info(f"Successfully created game '{title}' with ID {new_id}.")
@@ -218,24 +188,20 @@ async def delete_game(game_id: int):
         try:
             # SQL Server doesn't support %s, use ?
             for table in ["applied_tag", "library", "media"]:
-                cursor.execute((
-                    f"DELETE FROM {table} WHERE game_id = ?"),
+                cursor.execute(
+                    (f"DELETE FROM {table} WHERE game_id = ?"),
                     (game_id,),
                 )
-            
+
             # After cleaning related tables, we do the final deletion.
             cursor.execute(("DELETE FROM game WHERE id = ?"), (game_id,))
             conn.commit()
-            
+
             if cursor.rowcount == 0:
-                logger.info(
-                    f"Attempted to delete game {game_id} but it was not found."
-                )
+                logger.info(f"Attempted to delete game {game_id} but it was not found.")
                 return {"status": "success", "message": "Game not found"}
 
-            logger.info(
-                f"Successfully deleted game {game_id} and all related records."
-            )
+            logger.info(f"Successfully deleted game {game_id} and all related records.")
             return {"status": "success", "message": "Game successfully deleted"}
         except Exception:
             conn.rollback()
