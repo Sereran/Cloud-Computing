@@ -6,6 +6,7 @@ import asyncio
 import dotenv
 import os
 import logging
+import pyodbc
 
 dotenv.load_dotenv()
 
@@ -27,26 +28,36 @@ app.add_middleware(
 
 # configuration
 # folosim os.getenv pentru a putea schimba url-ul fara sa modificam codul in azure
-hw1_api_url = os.getenv("HW1_API_URL", "http://127.0.0.1:8000/games")
+server = os.getenv("SQL_SERVER")
+database = os.getenv("SQL_DATABASE")
+username = os.getenv("SQL_USER")
+password = os.getenv("SQL_PASSWORD")
+driver = '{ODBC Driver 18 for SQL Server}'
 rawg_api_key = os.getenv("RAWG_KEY")
 rawg_api_url = "https://api.rawg.io/api/games"
 cheapshark_api_url = "https://www.cheapshark.com/api/1.0/games"
 exchange_api_url = "https://api.frankfurter.app/latest?from=USD&to=EUR,RON"
 
+# functie pentru a crea conexiunea la baza de date
+def get_db_connection():
+    conn_str = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
+    return pyodbc.connect(conn_str)
 
 @app.get("/api/games")
 async def get_all_games():
-    async with httpx.AsyncClient() as client:
-        try:
-            # fecthes data from hw1 api and returns it to the frontend
-            hw1_response = await client.get(hw1_api_url)
-
-            if hw1_response.status_code == 200:
-                return hw1_response.json()
-        except Exception:
-            # daca serviciul extern nu raspunde, returnam date de test
-            pass
-
+    try:
+        # citim jocurile din sql si le returnam catre frontend
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("select id, title, genre from games")
+        games = []
+        for row in cursor.fetchall():
+            games.append({"id": row[0], "title": row[1], "genre": row[2]})
+        conn.close()
+        return games
+    except Exception as e:
+        logger.error(f"database error: {e}")
+        # daca serviciul extern nu raspunde, returnam date de test
         return [
             {"id": 1, "title": "the witcher 3", "genre": "rpg"},
             {"id": 2, "title": "elden ring", "genre": "action"},
@@ -56,109 +67,107 @@ async def get_all_games():
 
 @app.get("/api/games/{game_id}")
 async def get_aggregated_game_data(game_id: int):
+    # 1. incercam sa luam datele din sql
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("select id, title, genre from games where id = ?", (game_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            hw1_data = {"id": row[0], "title": row[1], "genre": row[2]}
+            game_title = row[1]
+        else:
+            # daca nu exista in sql, dam un fallback sa nu crape tot api-ul
+            hw1_data = {"id": game_id, "title": "unknown game", "genre": "n/a"}
+            game_title = "the witcher 3" # fallback pentru api-uri externe
+    except Exception as e:
+        logger.error(f"database error: {e}")
+        hw1_data = {"id": game_id, "title": "db connection error", "genre": "n/a"}
+        game_title = "the witcher 3"
+
+    # 2. apelam api-urile externe cu protectie la erori
     async with httpx.AsyncClient() as client:
         try:
-            # fetches data from all apis
-            hw1_response = await client.get(f"{hw1_api_url}/{game_id}")
-            if hw1_response.status_code == 200:
-                hw1_data = hw1_response.json()
-            else:
-                # date de rezerva pentru test
-                hw1_data = {"id": game_id, "title": "the witcher 3"}
-        except Exception:
-            hw1_data = {"id": game_id, "title": "the witcher 3"}
-
-        game_title = hw1_data.get("title", "the witcher 3")
-
-        # fetch concurrently from all external apis
-        try:
-            rawg_task = client.get(
-                f"{rawg_api_url}?key={rawg_api_key}&search={game_title}"
+            responses = await asyncio.gather(
+                client.get(f"{rawg_api_url}?key={rawg_api_key}&search={game_title}"),
+                client.get(f"{cheapshark_api_url}?title={game_title}"),
+                client.get(exchange_api_url),
+                return_exceptions=True # foarte important: nu crapa tot daca un api pica
             )
-            cs_task = client.get(f"{cheapshark_api_url}?title={game_title}")
-            rates_task = client.get(exchange_api_url)
+            
+            rawg_resp = responses[0] if not isinstance(responses[0], Exception) else None
+            cs_resp = responses[1] if not isinstance(responses[1], Exception) else None
+            rates_resp = responses[2] if not isinstance(responses[2], Exception) else None
 
-            # wait for all external apis to finish at the same time
-            rawg_resp, cs_resp, rates_resp = await asyncio.gather(
-                rawg_task, cs_task, rates_task
-            )
-        except Exception:
-            return {"local_data": hw1_data, "message": "external apis unreachable"}
+            # extractie sigura rawg
+            media = {"cover_url": None}
+            reviews = {"metacritic": None}
+            platforms = []
+            if rawg_resp and rawg_resp.status_code == 200:
+                results = rawg_resp.json().get("results", [])
+                if results:
+                    media["cover_url"] = results[0].get("background_image")
+                    reviews["metacritic"] = results[0].get("metacritic")
+                    platforms = [p.get("platform", {}).get("name") for p in results[0].get("platforms", [])]
 
-        # extract rawg data (image, metacritic, platforms)
-        rawg_data = rawg_resp.json()
-        cover_image = None
-        metacritic_score = None
-        platforms = []
+            # extractie sigura preturi
+            pricing = {"usd": None, "eur": None, "ron": None, "deal_id": None}
+            if cs_resp and cs_resp.status_code == 200:
+                cs_data = cs_resp.json()
+                if cs_data:
+                    usd = float(cs_data[0].get("cheapest", 0))
+                    pricing["usd"] = usd
+                    pricing["deal_id"] = cs_data[0].get("cheapestDealID")
+                    
+                    if rates_resp and rates_resp.status_code == 200:
+                        rates = rates_resp.json().get("rates", {})
+                        pricing["eur"] = round(usd * rates.get("EUR", 0.92), 2)
+                        pricing["ron"] = round(usd * rates.get("RON", 4.95), 2)
 
-        if rawg_resp.status_code == 200 and rawg_data.get("results"):
-            first_result = rawg_data["results"][0]
-            cover_image = first_result.get("background_image")
-            metacritic_score = first_result.get("metacritic")
-
-            if first_result.get("platforms"):
-                for p in first_result["platforms"]:
-                    platform_name = p.get("platform", {}).get("name")
-                    if platform_name:
-                        platforms.append(platform_name)
-
-        # extract cheapshark price and link
-        cs_data = cs_resp.json()
-        price_usd = None
-        deal_id = None
-
-        if cs_resp.status_code == 200 and len(cs_data) > 0:
-            best_match = cs_data[0]
-            price_usd = float(best_match.get("cheapest", 0.0))
-            # grabs the id to link to the store
-            deal_id = best_match.get("cheapestDealID")
-
-        # calculate exchange rates
-        rates_data = rates_resp.json()
-        price_eur = None
-        price_ron = None
-
-        if rates_resp.status_code == 200 and price_usd is not None:
-            eur_rate = rates_data["rates"].get("EUR", 1.0)
-            ron_rate = rates_data["rates"].get("RON", 1.0)
-            price_eur = round(price_usd * eur_rate, 2)
-            price_ron = round(price_usd * ron_rate, 2)
-
-        return {
-            "local_data": hw1_data,
-            "media": {"cover_url": cover_image},
-            "pricing": {
-                "usd": price_usd,
-                "eur": price_eur,
-                "ron": price_ron,
-                "deal_id": deal_id,
-            },
-            "reviews": {"metacritic": metacritic_score},
-            "platforms": platforms,
-        }
-
+            return {
+                "local_data": hw1_data,
+                "media": media,
+                "pricing": pricing,
+                "reviews": reviews,
+                "platforms": platforms
+            }
+            
+        except Exception as e:
+            return {"error": "aggregation failed", "details": str(e), "local_data": hw1_data}
 
 @app.post("/api/games")
 async def create_new_game(request: Request):
     # grabs the json data sent from the frontend
     new_game_data = await request.json()
 
-    async with httpx.AsyncClient() as client:
-        try:
-            # forward the data to the local hw1 web service
-            hw1_response = await client.post(hw1_api_url, json=new_game_data)
-            return hw1_response.json()
-        except Exception:
-            # raspuns simulacru pentru succes in mod offline
-            return {"message": "mock success: game saved", "data": new_game_data}
+    try:
+        # salvam datele in sql
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("insert into games (title, genre) values (?, ?)", 
+                       (new_game_data['title'], new_game_data['genre']))
+        conn.commit()
+        conn.close()
+        return {"message": "game saved to sql database"}
+    except Exception as e:
+        logger.error(f"sql error: {e}")
+        # raspuns simulacru pentru succes in mod offline
+        return {"message": "mock success: game saved", "data": new_game_data}
 
 
 @app.delete("/api/games/{game_id}")
 async def delete_game(game_id: int):
-    async with httpx.AsyncClient() as client:
-        try:
-            await client.delete(f"{hw1_api_url}/{game_id}")
-            return {"message": "game successfully deleted"}
-        except Exception:
-            # raspuns simulacru pentru succes in mod offline
-            return {"message": "mock success: game deleted"}
+    try:
+        # stergem jocul din baza de date sql
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("delete from games where id = ?", (game_id,))
+        conn.commit()
+        conn.close()
+        return {"message": "game successfully deleted from sql"}
+    except Exception as e:
+        logger.error(f"sql error: {e}")
+        # raspuns simulacru pentru succes in mod offline
+        return {"message": "mock success: game deleted"}
