@@ -35,7 +35,7 @@ const toggleAuthMode = (mode) => {
 // ----------------------------------------
 // ! Azure Blob Storage logic and dependencies.
 // ----------------------------------------
-const AZURE_STORAGE_CONNECTION_STRING = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+const sasUrl = import.meta.env.VITE_AZURE_STORAGE_SAS_URL;
 const containerName = import.meta.env.VITE_AZURE_STORAGE_CONTAINER_NAME;
 
 const isUploading = ref(false)
@@ -54,7 +54,7 @@ const handleFileChange = (event) => {
 
 const uploadFiles = async () => {
   const urls = []
-  const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
+  const blobServiceClient = new BlobServiceClient(sasUrl);
   const containerClient = blobServiceClient.getContainerClient(containerName);
 
   for (const file of selectedFiles.value) {
