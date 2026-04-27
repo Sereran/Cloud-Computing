@@ -1,6 +1,9 @@
 fastapi
-uvicorn
+fastapi[standard]
 azure-monitor-opentelemetry
-httpx
-python-dotenv
 gunicorn
+uvicorn
+python-dotenv
+pyodbc
+google-cloud-logging
+httpx
