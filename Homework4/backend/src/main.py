@@ -46,7 +46,7 @@ app = FastAPI(title="Cloud Homework", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*", "https://kind-pond-05f3ad403.7.azurestaticapps.net"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
