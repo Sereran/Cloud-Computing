@@ -30,7 +30,7 @@ jobs:
         run: |
           python -m venv antenv
           source antenv/bin/activate
-          pip install -r requirements.txt
+          pip install -r Homework4/backend/requirements.txt
                 
       # by default, when you enable github ci/cd integration through the azure portal, the platform automatically sets the scm_do_build_during_deployment application setting to true. this triggers the use of oryx, a build engine that handles application compilation and dependency installation (e.g., pip install) directly on the platform during deployment. hence, we exclude the antenv virtual environment directory from the deployment artifact to reduce the payload size. 
       - name: upload artifact for deployment jobs
@@ -38,7 +38,7 @@ jobs:
         with:
           name: python-app
           path: |
-            ./Homework4
+            ./Homework4/backend
             !antenv/
 
       # 🚫 opting out of oryx build
