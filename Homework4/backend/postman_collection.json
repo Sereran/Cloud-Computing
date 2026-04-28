@@ -70,7 +70,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:8000",
+      "value": "https://cloud-computing-faceezexhef2aaf3.italynorth-01.azurewebsites.net",
       "type": "string"
     }
   ]
