@@ -209,7 +209,6 @@ watch(selectedGame, async (newGame) => {
 
   if (mapContainer.value) {
     const azureMapsKey = import.meta.env.VITE_AZURE_MAPS_KEY
-    console.log(import.meta.env.VITE_AZURE_MAPS_KEY);
 
     map = new atlas.Map(mapContainer.value, {
       authOptions: {
