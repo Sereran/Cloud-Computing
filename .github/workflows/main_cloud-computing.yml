@@ -38,7 +38,7 @@ jobs:
         with:
           name: python-app
           path: |
-            .
+            ./Homework4
             !antenv/
 
       # 🚫 opting out of oryx build
